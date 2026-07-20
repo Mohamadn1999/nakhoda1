@@ -6,7 +6,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const path = require('path');
-const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -15,9 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet({
-  contentSecurityPolicy: false
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 app.use(morgan('combined'));
 app.use(cors());
@@ -32,7 +29,7 @@ app.use(session({
   saveUninitialized: true,
   cookie: { 
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
@@ -40,28 +37,23 @@ app.use(session({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// In-memory storage (در محیط Railway)
+// ADMIN INFO - مستقیم و ساده
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
+console.log('========================================');
+console.log('🔑 USERNAME:', ADMIN_USERNAME);
+console.log('🔒 PASSWORD:', ADMIN_PASSWORD);
+console.log('========================================');
+
+// In-memory storage
 const configStorage = new Map();
-const userStorage = new Map();
 const statsStorage = {
   totalConfigs: 0,
   activeConfigs: 0,
   totalBandwidth: 0,
   uptime: Date.now()
 };
-
-// Default admin user - رمز عبور ساده بدون هش
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-
-userStorage.set(ADMIN_USERNAME, {
-  username: ADMIN_USERNAME,
-  password: ADMIN_PASSWORD, // ذخیره مستقیم رمز
-  role: 'admin',
-  createdAt: new Date()
-});
-
-console.log('✅ ادمین پیش‌فرض:', ADMIN_USERNAME, '/', ADMIN_PASSWORD);
 
 // Helper functions
 function generateVmessConfig(config) {
@@ -121,7 +113,8 @@ function generateShadowsocksConfig(config) {
   return `ss://${base64}@${address}:${port || 443}#${encodeURIComponent(remark || 'SS-Config')}`;
 }
 
-// Routes
+// ==================== ROUTES ====================
+
 app.get('/', (req, res) => {
   res.render('index', {
     title: 'پنل کانفیگ‌ساز',
@@ -134,21 +127,33 @@ app.get('/', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
+  if (req.session.username) {
+    return res.redirect('/dashboard');
+  }
   res.render('login', { error: null });
 });
 
+// ============ LOGIN - ساده و مستقیم ============
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  const user = userStorage.get(username);
   
-  // مقایسه مستقیم رمز عبور
-  if (user && user.password === password) {
+  console.log('📥 تلاش ورود:', username, '/', password);
+  
+  // مقایسه مستقیم - بدون Hash - بدون Map
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     req.session.username = username;
-    req.session.role = user.role;
-    res.redirect('/dashboard');
+    req.session.role = 'admin';
+    console.log('✅ ورود موفق');
+    return res.redirect('/dashboard');
   } else {
-    res.render('login', { error: 'نام کاربری یا رمز عبور اشتباه است' });
+    console.log('❌ ورود ناموفق');
+    return res.render('login', { error: '⛔ نام کاربری یا رمز عبور اشتباه است' });
   }
+});
+
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/');
 });
 
 app.get('/dashboard', (req, res) => {
@@ -172,13 +177,13 @@ app.post('/api/config/generate', (req, res) => {
   }
   
   const configId = uuidv4();
-  const uuid = uuidv4();
+  const uid = uuidv4();
   const address = customDomain || process.env.RAILWAY_STATIC_URL || 'localhost';
   const port = customPort || 443;
   
   const config = {
     id: configId,
-    uuid: uuid,
+    uuid: uid,
     protocol: protocol,
     address: address,
     port: port,
@@ -280,7 +285,8 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Config Panel running on port ${PORT}`);
+  console.log(`\n🚀 Config Panel running on port ${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
   console.log(`🌐 Railway URL: ${process.env.RAILWAY_STATIC_URL || 'Not set'}`);
+  console.log(`👤 Login: ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}\n`);
 });
