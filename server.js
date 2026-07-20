@@ -50,13 +50,18 @@ const statsStorage = {
   uptime: Date.now()
 };
 
-// Default admin user
-userStorage.set('admin', {
-  username: 'admin',
-  password: crypto.createHash('sha256').update('admin123').digest('hex'),
+// Default admin user - رمز عبور ساده بدون هش
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+
+userStorage.set(ADMIN_USERNAME, {
+  username: ADMIN_USERNAME,
+  password: ADMIN_PASSWORD, // ذخیره مستقیم رمز
   role: 'admin',
   createdAt: new Date()
 });
+
+console.log('✅ ادمین پیش‌فرض:', ADMIN_USERNAME, '/', ADMIN_PASSWORD);
 
 // Helper functions
 function generateVmessConfig(config) {
