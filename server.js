@@ -13,7 +13,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// ==================== MIDDLEWARE ====================
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 app.use(morgan('combined'));
@@ -22,31 +22,31 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Session configuration
+// ==================== SESSION ====================
 app.use(session({
   secret: process.env.SESSION_SECRET || 'railway-config-panel-secret-' + uuidv4(),
   resave: false,
   saveUninitialized: true,
   cookie: { 
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
-// View engine setup
+// ==================== VIEW ENGINE ====================
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ADMIN INFO - مستقیم و ساده
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+// ==================== ADMIN CONFIG ====================
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'admin123';
 
 console.log('========================================');
 console.log('🔑 USERNAME:', ADMIN_USERNAME);
 console.log('🔒 PASSWORD:', ADMIN_PASSWORD);
 console.log('========================================');
 
-// In-memory storage
+// ==================== STORAGE ====================
 const configStorage = new Map();
 const statsStorage = {
   totalConfigs: 0,
@@ -55,7 +55,7 @@ const statsStorage = {
   uptime: Date.now()
 };
 
-// Helper functions
+// ==================== HELPER FUNCTIONS ====================
 function generateVmessConfig(config) {
   const { uuid, address, port, remark } = config;
   const base64 = Buffer.from(JSON.stringify({
@@ -115,6 +115,7 @@ function generateShadowsocksConfig(config) {
 
 // ==================== ROUTES ====================
 
+// Home Page
 app.get('/', (req, res) => {
   res.render('index', {
     title: 'پنل کانفیگ‌ساز',
@@ -126,6 +127,7 @@ app.get('/', (req, res) => {
   });
 });
 
+// Login Page
 app.get('/login', (req, res) => {
   if (req.session.username) {
     return res.redirect('/dashboard');
@@ -133,29 +135,32 @@ app.get('/login', (req, res) => {
   res.render('login', { error: null });
 });
 
-// ============ LOGIN - ساده و مستقیم ============
+// Login Handler - ساده و مستقیم
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   
-  console.log('📥 تلاش ورود:', username, '/', password);
-  
-  // مقایسه مستقیم - بدون Hash - بدون Map
+  console.log('📥 تلاش برای ورود با:', username, '/', password);
+  console.log('📋 مقایسه با:', ADMIN_USERNAME, '/', ADMIN_PASSWORD);
+
+  // مقایسه مستقیم و ساده
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     req.session.username = username;
     req.session.role = 'admin';
-    console.log('✅ ورود موفق');
+    console.log('✅ ورود موفقیت‌آمیز');
     return res.redirect('/dashboard');
   } else {
-    console.log('❌ ورود ناموفق');
+    console.log('❌ ورود ناموفق - اطلاعات اشتباه');
     return res.render('login', { error: '⛔ نام کاربری یا رمز عبور اشتباه است' });
   }
 });
 
+// Logout
 app.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/');
 });
 
+// Dashboard
 app.get('/dashboard', (req, res) => {
   if (!req.session.username) {
     return res.redirect('/login');
@@ -168,7 +173,7 @@ app.get('/dashboard', (req, res) => {
   });
 });
 
-// API Routes
+// API - Generate Config
 app.post('/api/config/generate', (req, res) => {
   const { protocol, remark, customDomain, customPort } = req.body;
   
@@ -232,11 +237,13 @@ app.post('/api/config/generate', (req, res) => {
   });
 });
 
+// API - Get All Configs
 app.get('/api/configs', (req, res) => {
   const configs = Array.from(configStorage.values());
   res.json({ configs, stats: statsStorage });
 });
 
+// API - Get Single Config
 app.get('/api/config/:id', (req, res) => {
   const config = configStorage.get(req.params.id);
   if (!config) {
@@ -245,6 +252,7 @@ app.get('/api/config/:id', (req, res) => {
   res.json(config);
 });
 
+// API - Delete Config
 app.delete('/api/config/:id', (req, res) => {
   if (!req.session.username) {
     return res.status(401).json({ error: 'دسترسی غیرمجاز' });
@@ -259,11 +267,12 @@ app.delete('/api/config/:id', (req, res) => {
   }
 });
 
+// API - Stats
 app.get('/api/stats', (req, res) => {
   res.json(statsStorage);
 });
 
-// Health check endpoint
+// Health Check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy',
@@ -273,20 +282,21 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Error handling
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).render('404');
+});
+
+// Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).render('error', { error: 'خطای سرور' });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).render('404');
-});
-
+// ==================== START SERVER ====================
 app.listen(PORT, () => {
   console.log(`\n🚀 Config Panel running on port ${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
   console.log(`🌐 Railway URL: ${process.env.RAILWAY_STATIC_URL || 'Not set'}`);
-  console.log(`👤 Login: ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}\n`);
+  console.log(`👤 Login Info: ${ADMIN_USERNAME} / ${ADMIN_PASSWORD}\n`);
 });
