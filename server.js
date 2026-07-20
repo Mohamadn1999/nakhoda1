@@ -141,7 +141,8 @@ app.post('/login', (req, res) => {
   const { username, password } = req.body;
   const user = userStorage.get(username);
   
-  if (user && user.password === crypto.createHash('sha256').update(password).digest('hex')) {
+  // مقایسه مستقیم رمز عبور
+  if (user && user.password === password) {
     req.session.username = username;
     req.session.role = user.role;
     res.redirect('/dashboard');
