@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>داشبورد | Railway Config Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700&display=swap');
+        
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --dark-bg: #0a0e27;
+            --card-bg: #1a1f3a;
+            --border-color: #2a2f4a;
+        }
+        
+        * {
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        
+        body {
+            background: var(--dark-bg);
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            background: var(--card-bg);
+            min-height: 100vh;
+            border-left: 1px solid var(--border-color);
+        }
+        
+        .main-content {
+            padding: 30px;
+        }
+        
+        .config-generator {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .form-control, .form-select {
+            background: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background: var(--dark-bg);
+            border-color: #667eea;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+        }
+        
+        .btn-gradient {
+            background: var(--primary-gradient);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .config-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .config-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .protocol-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .protocol-vmess { background: #667eea; }
+        .protocol-vless { background: #4caf50; }
+        .protocol-trojan { background: #ff9800; }
+        .protocol-ss { background: #f44336; }
+        
+        .qr-code {
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        
+        .loading {
+            display: none;
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 sidebar p-4">
+                <h3 class="mb-4">
+                    <i class="fas fa-bolt"></i> پنل مدیریت
+                </h3>
+                <div class="user-info mb-4">
+                    <p class="mb-0">خوش آمدید، <strong><%= username %></strong></p>
+                </div>
+                <nav>
+                    <a href="#" class="btn btn-gradient w-100 mb-3" onclick="showGenerator()">
+                        <i class="fas fa-plus"></i> ساخت کانفیگ جدید
+                    </a>
+                    <a href="#" class="btn btn-outline-light w-100 mb-3" onclick="showConfigs()">
+                        <i class="fas fa-list"></i> کانفیگ‌های من
+                    </a>
+                    <a href="/logout" class="btn btn-outline-danger w-100">
+                        <i class="fas fa-sign-out-alt"></i> خروج
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-md-9 main-content">
+                <!-- Config Generator -->
+                <div id="generatorSection" class="config-generator">
+                    <h2 class="mb-4">
+                        <i class="fas fa-magic"></i> ساخت کانفیگ جدید
+                    </h2>
+                    <form id="configForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">پروتکل</label>
+                                <select class="form-select" name="protocol" required>
+                                    <option value="">انتخاب پروتکل...</option>
+                                    <option value="vmess">VMess</option>
+                                    <option value="vless">VLESS</option>
+                                    <option value="trojan">Trojan</option>
+                                    <option value="shadowsocks">Shadowsocks</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">نام کانفیگ (اختیاری)</label>
+                                <input type="text" class="form-control" name="remark" placeholder="مثلاً: Config-1">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">دامنه سفارشی (اختیاری)</label>
+                                <input type="text" class="form-control" name="customDomain" placeholder="your-domain.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">پورت سفارشی (اختیاری)</label>
+                                <input type="number" class="form-control" name="customPort" placeholder="443">
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-gradient btn-lg w-100">
+                                    <i class="fas fa-bolt"></i> ساخت کانفیگ
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Loading -->
+                    <div class="loading text-center mt-4" id="loading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">در حال ساخت...</span>
+                        </div>
+                        <p class="mt-2">در حال ساخت کانفیگ...</p>
+                    </div>
+                    
+                    <!-- Result -->
+                    <div id="result" class="mt-4" style="display: none;"></div>
+                </div>
+                
+                <!-- Configs List -->
+                <div id="configsSection" style="display: none;">
+                    <h2 class="mb-4">
+                        <i class="fas fa-list"></i> کانفیگ‌های من
+                    </h2>
+                    <div id="configsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showGenerator() {
+            document.getElementById('generatorSection').style.display = 'block';
+            document.getElementById('configsSection').style.display = 'none';
+        }
+        
+        function showConfigs() {
+            document.getElementById('generatorSection').style.display = 'none';
+            document.getElementById('configsSection').style.display = 'block';
+            loadConfigs();
+        }
+        
+        async function loadConfigs() {
+            try {
+                const response = await fetch('/api/configs');
+                const data = await response.json();
+                
+                const configsList = document.getElementById('configsList');
+                configsList.innerHTML = '';
+                
+                if (data.configs.length === 0) {
+                    configsList.innerHTML = '<p class="text-center">هیچ کانفیگی یافت نشد</p>';
+                    return;
+                }
+                
+                data.configs.forEach(config => {
+                    const card = document.createElement('div');
+                    card.className = 'config-card';
+                    card.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5>${config.remark}</h5>
+                            <span class="protocol-badge protocol-${config.protocol}">${config.protocol.toUpperCase()}</span>
+                        </div>
+                        <p><strong>آدرس:</strong> ${config.address}</p>
+                        <p><strong>پورت:</strong> ${config.port}</p>
+                        <p><strong>تاریخ ساخت:</strong> ${new Date(config.createdAt).toLocaleDateString('fa-IR')}</p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" value="${config.link}" readonly>
+                            <button class="btn btn-gradient" onclick="copyToClipboard('${config.link}')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        ${config.qrCode ? `<div class="qr-code"><img src="${config.qrCode}" alt="QR Code"></div>` : ''}
+                        <button class="btn btn-danger btn-sm mt-2" onclick="deleteConfig('${config.id}')">
+                            <i class="fas fa-trash"></i> حذف
+                        </button>
+                    `;
+                    configsList.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading configs:', error);
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('کانفیگ کپی شد!');
+            });
+        }
+        
+        async function deleteConfig(id) {
+            if (confirm('آیا از حذف این کانفیگ مطمئن هستید؟')) {
+                try {
+                    const response = await fetch(`/api/config/${id}`, { method: 'DELETE' });
+                    const data = await response.json();
+                    if (data.success) {
+                        loadConfigs();
+                    }
+                } catch (error) {
+                    console.error('Error deleting config:', error);
+                }
+            }
+        }
+        
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/config/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('result').innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>✅ کانفیگ با موفقیت ساخته شد!</h4>
+                            <p><strong>نام:</strong> ${result.config.remark}</p>
+                            <p><strong>پروتکل:</strong> ${result.config.protocol.toUpperCase()}</p>
+                            <div class="input-group mt-3">
+                                <input type="text" class="form-control" value="${result.config.link}" readonly>
+                                <button class="btn btn-gradient" onclick="copyToClipboard('${result.config.link}')">
+                                    <i class="fas fa-copy"></i> کپی
+                                </button>
+                            </div>
+                            ${result.config.qrCode ? `<div class="qr-code mt-3"><img src="${result.config.qrCode}" alt="QR Code"></div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    alert('خطا در ساخت کانفیگ: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('خطا در ارتباط با سرور');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
